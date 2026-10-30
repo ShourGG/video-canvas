@@ -1,0 +1,25 @@
+{
+  "pos": {
+    "char:林舟": [0, 0],
+    "char:青禾": [0, 340],
+    "char:山间驿站": [-420, 0],
+    "shot:demo-01": [420, 0],
+    "frame:demo-01": [840, 0],
+    "video:demo-01": [1260, 0],
+    "shot:demo-02": [420, 340],
+    "frame:demo-02": [840, 340],
+    "video:demo-02": [1260, 340]
+  },
+  "frameChoice": {},
+  "videoChoice": {},
+  "notes": [
+    {
+      "id": "welcome",
+      "x": 420,
+      "y": -230,
+      "text": "先选定角色和场景参考图，再编辑分镜，生成首帧与视频。滚轮缩放，拖动空白处平移，双击卡片编辑。",
+      "color": "yellow"
+    }
+  ],
+  "links": []
+}

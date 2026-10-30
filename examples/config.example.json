@@ -1,0 +1,11 @@
+{
+  "base_url": "",
+  "api_key": "",
+  "model": "muse-image",
+  "size": "3:4",
+  "extra_body": "{}",
+  "prefix": "真人古装剧角色定妆照，写实人像摄影，纯浅灰色背景，柔和影棚光，皮肤质感真实，高清",
+  "negative": "动漫、卡通、3D渲染、游戏CG、畸形手指、文字、水印",
+  "video_model": "muse-video",
+  "video_style": "真人古装电视剧画面，电影级实拍质感，演员自然表演，自然光与柔和补光，构图稳定"
+}

@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>分镜画布</title>
+<link rel="icon" href="data:,">
+<style>
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; overflow: hidden; }
+body { color-scheme: dark; font-family: "Microsoft YaHei", sans-serif; background: #1b1c21; color: #e6e6e6; }
+button, input, select, textarea { font: inherit; color: inherit; background: #2b2c33; border: 1px solid #444; border-radius: 6px; padding: 5px 9px; }
+button { cursor: pointer; background: #3a3b42; border: none; white-space: nowrap; }
+button.primary { background: #3d5afe; }
+button:disabled { opacity: .45; cursor: default; }
+a { color: #8fa8ff; }
+
+#viewport { position: fixed; inset: 0; overflow: hidden; cursor: default;
+  background-color: #1b1c21; background-image: radial-gradient(#34353d 1.2px, transparent 1.2px); }
+#viewport.panning { cursor: grabbing; }
+#world { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
+#edges { position: absolute; left: 0; top: 0; width: 1px; height: 1px; overflow: visible; pointer-events: none; }
+.edge { fill: none; stroke-width: 2; }
+.edge.data { stroke: #7a88e8; opacity: .3; }
+.edge.flow { stroke: #6a7080; }
+.edge.free { stroke: #e0a83f; stroke-dasharray: 7 5; }
+.edge.hl { opacity: 1; stroke-width: 3; }
+.edge.sel { stroke: #ff7a59; opacity: 1; stroke-width: 3; }
+.hit { fill: none; stroke: transparent; stroke-width: 16; pointer-events: stroke; cursor: pointer; }
+#tempLink { fill: none; stroke: #e0a83f; stroke-width: 2; stroke-dasharray: 6 4; }
+#box { position: fixed; border: 1px dashed #8fa8ff; background: rgba(91, 124, 255, .12); pointer-events: none; }
+
+.node { position: absolute; background: #2a2b33; border: 1px solid #3d3e48; border-radius: 10px;
+  box-shadow: 0 4px 16px rgba(0,0,0,.35); user-select: none; }
+.node.selected { outline: 2px solid #5b7cff; outline-offset: 1px; }
+.node.link-target { outline: 2px dashed #e0a83f; }
+.node.char { width: 170px; }
+.node.shot { width: 300px; }
+.node.frame { width: 320px; }
+.node.video { width: 360px; }
+.node.note { width: 230px; min-height: 120px; color: #2a2a2a; border: none; }
+.node.scene { width: 320px; }
+.scene .tag { background: #2f4f5a; color: #c4eaff; }
+.scene .port.in { display: none; }
+.edge.data.scene { stroke: #3fb5a0; }
+.node-head { display: flex; align-items: center; gap: 6px; padding: 7px 10px; font-size: 13px; cursor: grab; }
+.node-head .grow { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tag { font-size: 11px; padding: 1px 6px; border-radius: 4px; background: #3d4466; color: #c8d0ff; flex-shrink: 0; }
+.char .tag { background: #4a3d66; color: #e0d0ff; }
+.frame .tag { background: #2f5249; color: #c4f0e1; }
+.video .tag { background: #5a3b2f; color: #ffd8c4; }
+.dur { font-size: 12px; color: #999; }
+.portrait { display: block; width: 100%; aspect-ratio: 3 / 4; object-fit: cover; object-position: top; background: #1f2026; }
+.portrait.empty { display: flex; align-items: center; justify-content: center; color: #777; font-size: 13px; }
+.node-sub { padding: 6px 10px 9px; font-size: 12px; color: #999; }
+.warn { color: #f0b429; }
+.badge { display: inline-block; margin: 0 10px; padding: 1px 8px; border-radius: 10px; font-size: 12px; background: #3a3b42; color: #bbb; }
+.badge.run { background: #f0b429; color: #222; }
+.badge.ok { background: #2e7d4f; color: #e6ffe9; }
+.badge.err { background: #a33; color: #fff; }
+.node-text { margin: 8px 10px 0; font-size: 12px; color: #bbb; line-height: 1.5;
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.node-dialog { margin: 6px 10px 0; font-size: 12px; color: #f0d58a; line-height: 1.5; white-space: pre-wrap;
+  display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
+.node-actions { display: flex; gap: 6px; padding: 9px 10px; flex-wrap: wrap; align-items: center; }
+.node-actions a { font-size: 13px; }
+.media-box { position: relative; aspect-ratio: 16 / 9; background: #15161a; }
+.media-box img, .media-box video { display: block; width: 100%; height: 100%; object-fit: cover; }
+.placeholder { display: flex; height: 100%; align-items: center; justify-content: center; color: #666; font-size: 13px; }
+.overlay { position: absolute; top: 34px; right: 8px; padding: 2px 9px; border-radius: 10px; background: #f0b429; color: #222; font-size: 12px; pointer-events: none; }
+.overlay:empty { display: none; }
+.port { position: absolute; top: 50%; width: 14px; height: 14px; margin-top: -7px; border-radius: 50%; background: #5b7cff; border: 3px solid #1b1c21; }
+.port.in { left: -8px; }
+.port.out { right: -8px; cursor: crosshair; }
+.port.out:hover { background: #e0a83f; transform: scale(1.3); }
+.char .port.in { display: none; }
+.note .node-head { padding: 4px 10px; font-size: 11px; color: rgba(0,0,0,.45); }
+.note-text { min-height: 80px; padding: 2px 12px 12px; font-size: 14px; line-height: 1.5; white-space: pre-wrap; outline: none; cursor: text; user-select: text; }
+.note-text:empty::before { content: "双击这里写点什么…"; color: rgba(0,0,0,.35); }
+.note-colors { display: none; gap: 5px; padding: 0 10px 8px; }
+.note.selected .note-colors { display: flex; }
+.note-colors i { width: 16px; height: 16px; border-radius: 50%; border: 1px solid rgba(0,0,0,.25); cursor: pointer; }
+
+.panel { position: fixed; z-index: 10; background: rgba(37, 38, 44, .96); border: 1px solid #3d3e48; border-radius: 10px; box-shadow: 0 4px 18px rgba(0,0,0,.4); }
+#toolbar { top: 12px; left: 12px; display: flex; gap: 6px; padding: 8px; align-items: center; flex-wrap: wrap; max-width: calc(100vw - 440px); }
+#toolbar .sep { width: 1px; height: 22px; background: #444; margin: 0 4px; }
+#toolbar input { width: 170px; }
+#zoombar { bottom: 12px; left: 12px; display: flex; gap: 4px; padding: 6px; align-items: center; }
+#zoomLabel { width: 54px; text-align: center; font-size: 13px; color: #bbb; }
+#help { bottom: 12px; left: 50%; transform: translateX(-50%); padding: 6px 14px; font-size: 12px; color: #999; }
+#toast { position: fixed; z-index: 30; bottom: 56px; left: 50%; transform: translateX(-50%); padding: 8px 16px; border-radius: 8px; background: #3d5afe; color: #fff; font-size: 14px; display: none; max-width: 70vw; }
+#toast.error { background: #b33; }
+
+#inspector { top: 0; right: 0; bottom: 0; width: 400px; border-radius: 0; overflow-y: auto; padding: 14px 16px 30px; }
+#inspector header { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+#inspector header h3 { margin: 0; flex: 1; font-size: 16px; }
+#inspector label { display: block; margin: 12px 0 4px; font-size: 13px; color: #aaa; }
+#inspector input[type=text], #inspector textarea, #inspector select.wide { width: 100%; }
+#inspector textarea { resize: vertical; }
+#inspector .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 10px; }
+.muted { color: #888; font-size: 12px; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { display: inline-flex; align-items: center; gap: 5px; padding: 3px 4px 3px 3px; border-radius: 16px; background: #34353d; font-size: 13px; }
+.chip img { width: 24px; height: 24px; border-radius: 50%; object-fit: cover; object-position: top; }
+.chip b { cursor: pointer; color: #999; padding: 0 5px; font-weight: normal; }
+.prompt-text { white-space: pre-wrap; font-size: 12px; color: #bbb; background: #1f2026; padding: 8px; border-radius: 6px; }
+.job { padding: 8px; margin-top: 8px; border-radius: 6px; background: #2b2c33; font-size: 13px; }
+.job code { font-size: 11px; color: #9aa; }
+.job-error { color: #ff8a8a; margin-top: 4px; }
+.gallery { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
+.gallery .card { border: 2px solid transparent; border-radius: 6px; overflow: hidden; background: #2b2c33; }
+.gallery .card.on { border-color: #f0b429; }
+.gallery img { display: block; width: 100%; cursor: zoom-in; }
+.gallery button { width: 100%; border-radius: 0; font-size: 12px; }
+#status, #cStatus { margin-top: 8px; font-size: 13px; color: #f0b429; min-height: 18px; }
+.error-text { color: #ff8a8a !important; }
+</style>
+</head>
+<body>
+<div id="viewport">
+  <div id="world">
+    <svg id="edges">
+      <defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#6a7080"/></marker></defs>
+      <g id="edgeLayer"></g>
+      <path id="tempLink" d=""/>
+    </svg>
+    <div id="nodes"></div>
+  </div>
+</div>
+<div id="box" hidden></div>
+
+<div id="toolbar" class="panel">
+  <button id="btnNote">＋ 便签</button>
+  <button id="btnScene">＋ 场景</button>
+  <button id="btnShot">＋ 分镜</button>
+  <select id="addChar"><option value="">＋ 角色…</option></select>
+  <span class="sep"></span>
+  <button id="btnBatch" class="primary" disabled>生成选中分镜</button>
+  <span class="sep"></span>
+  <input id="search" placeholder="搜索镜头 / 角色 / 便签，回车跳转">
+  <span class="sep"></span>
+  <a href="/#videos" title="原来的表单式工作台">经典视图</a>
+</div>
+<div id="zoombar" class="panel">
+  <button id="zoomOut">−</button><span id="zoomLabel">100%</span><button id="zoomIn">＋</button>
+  <button id="zoomFit">适应全部</button>
+</div>
+<div id="help" class="panel">滚轮缩放 · 拖空白处平移 · Shift+拖动框选 · 双击空白建便签 · 双击卡片编辑 · 从右侧圆点拖线连接 · Delete 删除</div>
+<aside id="inspector" class="panel" hidden></aside>
+<div id="toast"></div>
+<script src="/canvas.js"></script>
+</body>
+</html>

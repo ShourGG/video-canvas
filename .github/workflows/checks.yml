@@ -1,0 +1,31 @@
+name: Checks
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Backend tests (no upstream calls)
+        run: python -m unittest discover -v
+      - name: JavaScript syntax
+        run: |
+          node --check canvas.js
+          node --check studio.js
+      - name: Python syntax
+        run: python -m compileall -q server.py video_jobs.py setup_demo.py

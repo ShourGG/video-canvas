@@ -1,0 +1,3 @@
+# The web app itself uses only Python's standard library.
+# Install this optional dependency to concatenate videos and write subtitles.
+imageio-ffmpeg>=0.6.0,<0.7

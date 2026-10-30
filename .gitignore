@@ -1,0 +1,45 @@
+# Local configuration and production project data
+/config.json
+/characters.json
+/shots.json
+/canvas.json
+/角色图/
+/视频任务/
+/备份/
+/验证记录/
+/第一集/
+/长镜头/
+/成片/
+
+# Secrets and runtime files
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.dpapi
+*.log
+*.tmp
+*.part
+*.sqlite*
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Generated media stays local; documentation images live under docs/
+*.mp4
+*.mov
+*.wav
+*.mp3
+*.webp
+*.png
+*.jpg
+*.jpeg
+!docs/**/*.png
+!docs/**/*.jpg

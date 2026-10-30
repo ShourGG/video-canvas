@@ -1,0 +1,349 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>角色与分镜视频工作台</title>
+<link rel="icon" href="data:,">
+<style>
+* { box-sizing: border-box; }
+body { color-scheme: dark; margin: 0; font-family: "Microsoft YaHei", sans-serif; background: #1e1f24; color: #e6e6e6; display: grid; grid-template: 54px minmax(0,1fr) / 260px minmax(0,1fr); height: 100vh; }
+[hidden] { display: none !important; }
+.appnav { grid-column: 1 / -1; display: flex; align-items: center; gap: 8px; padding: 8px 14px; background: #18191e; border-bottom: 1px solid #333; }
+.appnav strong { margin-right: 22px; font-size: 15px; }
+.appnav button { background: #303139; }
+.appnav button.active { background: #3d5afe; }
+.appnav span { margin-left: auto; color: #999; font-size: 12px; }
+aside { grid-row: 2; grid-column: 1; min-height: 0; }
+main { grid-row: 2; grid-column: 2; min-width: 0; }
+aside { width: 260px; background: #25262c; border-right: 1px solid #333; display: flex; flex-direction: column; }
+aside header { padding: 12px; display: flex; gap: 8px; }
+aside header button { white-space: nowrap; flex-shrink: 0; }
+#search { flex: 1; min-width: 0; }
+#list { flex: 1; overflow-y: auto; }
+.group { padding: 10px 12px 4px; font-size: 12px; color: #888; }
+.item { display: flex; align-items: center; gap: 8px; padding: 6px 12px; cursor: pointer; }
+.item:hover { background: #2f3037; }
+.item.active { background: #3a4a6b; }
+.thumb { width: 32px; height: 32px; border-radius: 4px; object-fit: cover; object-position: top; background: #3a3b42; flex-shrink: 0; }
+.role { font-size: 12px; color: #999; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+main { flex: 1; overflow-y: auto; padding: 20px 28px; }
+input, textarea, select, button { font: inherit; color: inherit; background: #2b2c33; border: 1px solid #444; border-radius: 6px; padding: 6px 10px; }
+textarea { width: 100%; resize: vertical; }
+button { cursor: pointer; background: #3d5afe; border: none; }
+button.secondary { background: #3a3b42; }
+button:disabled { opacity: .5; cursor: default; }
+label { display: block; margin: 12px 0 4px; color: #aaa; font-size: 13px; }
+.row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
+#preview { background: #25262c; padding: 10px; border-radius: 6px; font-size: 13px; color: #bbb; white-space: pre-wrap; }
+#status { color: #f0b429; min-height: 20px; margin-top: 10px; }
+#status.error { color: #ff6b6b; }
+#gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 14px; margin-top: 12px; }
+.card { background: #25262c; border-radius: 8px; overflow: hidden; border: 2px solid transparent; }
+.card.portrait { border-color: #f0b429; }
+.card img { width: 100%; display: block; cursor: zoom-in; }
+.card .bar { display: flex; justify-content: space-between; align-items: center; padding: 6px 8px; font-size: 12px; color: #999; }
+.empty { color: #777; margin-top: 40px; text-align: center; grid-column: 1 / -1; }
+dialog { background: #25262c; color: inherit; border: 1px solid #444; border-radius: 10px; width: 600px; }
+dialog::backdrop { background: rgba(0, 0, 0, .6); }
+dialog input { width: 100%; }
+.shot-list { flex: 1; overflow-y: auto; }
+.shot-item { padding: 11px 14px; border-bottom: 1px solid #303139; cursor: pointer; font-size: 13px; }
+.shot-item:hover { background: #303139; }
+.shot-item.active { background: #354666; }
+.muted { color: #999; font-size: 12px; line-height: 1.7; }
+.studio-grid { display: grid; grid-template-columns: minmax(320px,1fr) minmax(340px,1fr); gap: 24px; margin-top: 14px; }
+.studio-box { background: #25262c; border: 1px solid #383941; border-radius: 8px; padding: 15px; margin-bottom: 14px; }
+.studio-box h3 { margin: 0 0 10px; font-size: 15px; }
+.studio-box img, .studio-box video { width: 100%; max-height: 380px; object-fit: contain; background: #111216; border-radius: 5px; }
+.studio-box input:not([type=checkbox]), .studio-box select { max-width: 100%; }
+.studio-box input[type=text] { width: 100%; }
+.character-choice { display: inline-flex; align-items: center; gap: 5px; margin: 4px 12px 4px 0; }
+.character-choice img { width: 28px; height: 36px; object-fit: cover; object-position: top; }
+.job-row { padding: 10px 0; border-top: 1px solid #3b3c43; font-size: 13px; }
+.job-row code { overflow-wrap: anywhere; font-size: 11px; }
+.job-error, #shotStatus.error { color: #ff9393; white-space: pre-wrap; }
+#shotStatus { min-height: 24px; margin-top: 10px; color: #a8c1ff; }
+.prompt-text { white-space: pre-wrap; overflow-wrap: anywhere; color: #bbb; font-size: 12px; line-height: 1.7; }
+@media (max-width: 1100px) { .studio-grid { grid-template-columns: minmax(0,1fr); } }
+</style>
+</head>
+<body>
+<nav class="appnav"><strong>影像工作台</strong><button id="tabCharacters" class="active">角色定妆</button><button id="tabVideos">分镜视频</button><span id="studioSummary">本机工作台</span></nav>
+<aside id="characterSidebar">
+  <header>
+    <input id="search" placeholder="搜索角色">
+    <button class="secondary" id="btnSettings">设置</button>
+  </header>
+  <div id="list"></div>
+  <div style="padding:12px"><button class="secondary" id="btnAdd" style="width:100%">+ 新增角色</button></div>
+</aside>
+<main id="main"><div class="empty">左侧选择一个角色</div></main>
+<aside id="videoSidebar" hidden>
+  <header><input id="shotSearch" placeholder="搜索分镜" style="min-width:0;width:100%"><button class="secondary" id="videoSettings">设置</button></header>
+  <div id="shotList" class="shot-list"></div>
+  <div style="padding:12px"><button class="secondary" id="addShot" style="width:100%">+ 新增分镜</button></div>
+</aside>
+<main id="videoMain" hidden><div class="empty">正在读取分镜与任务…</div></main>
+
+<dialog id="settings">
+  <h3 style="margin-top:0">接口设置</h3>
+  <label>接口地址（带 /v1，例如 https://api.example.com/v1）</label>
+  <input id="cfgBase">
+  <label>API Key</label>
+  <input id="cfgKey" type="password" autocomplete="off">
+  <div class="row" style="margin-top:0">
+    <div style="flex:1"><label>模型名</label><input id="cfgModel"></div>
+    <div style="flex:1"><label>画幅比例</label><input id="cfgSize" list="sizes"></div>
+  </div>
+  <datalist id="sizes"><option>3:4</option><option>9:16</option><option>1:1</option><option>4:3</option><option>16:9</option></datalist>
+  <label>额外请求参数（JSON，合并进请求体）</label>
+  <textarea id="cfgExtra" rows="2"></textarea>
+  <label>统一风格前缀</label>
+  <textarea id="cfgPrefix" rows="2"></textarea>
+  <label>负面提示词（拼到提示词末尾）</label>
+  <textarea id="cfgNegative" rows="2"></textarea>
+  <label>视频模型名</label><input id="cfgVideoModel" placeholder="muse-video">
+  <label>分镜统一风格（独立于角色定妆照的灰底设置）</label><textarea id="cfgVideoStyle" rows="2"></textarea>
+  <div class="row" style="justify-content:flex-end">
+    <button class="secondary" id="btnCancel">取消</button>
+    <button id="btnSave">保存</button>
+  </div>
+</dialog>
+
+<script>
+const VIEWS = ["正面半身像", "全身像", "侧面半身像", ""];
+const REF_HINT = "参考图中是同一个人物，保持脸型和五官长相一致";
+let state = { config: {}, characters: [] };
+let current = null;
+const running = new Set();
+
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const imgUrl = (name, file) => `/img/${encodeURIComponent(name)}/${encodeURIComponent(file)}`;
+
+async function api(path, body) {
+  const opts = body === undefined ? {} : { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) };
+  const res = await fetch(path, opts);
+  const data = await res.json();
+  if (!res.ok) { const error = new Error(data.error || res.statusText); error.status = res.status; throw error; }
+  return data;
+}
+
+const saveCharacters = () => api("/api/characters", state.characters);
+
+function setStatus(msg, isError) {
+  const el = $("status");
+  if (!el) return;
+  el.textContent = msg;
+  el.className = isError ? "error" : "";
+}
+const showError = e => setStatus("出错：" + e.message, true);
+
+function renderList() {
+  const q = $("search").value.trim();
+  const groups = {};
+  for (const c of state.characters) {
+    if (q && !(c.name + c.role + c.group).includes(q)) continue;
+    (groups[c.group] ||= []).push(c);
+  }
+  $("list").innerHTML = Object.entries(groups).map(([g, items]) =>
+    `<div class="group">${esc(g)}</div>` + items.map(c => {
+      const thumb = c.portrait || state.latest[c.name];
+      return `
+      <div class="item ${c === current ? "active" : ""}" data-name="${esc(c.name)}">
+        ${thumb ? `<img class="thumb" src="${imgUrl(c.name, thumb)}">` : `<div class="thumb"></div>`}
+        <div style="min-width:0"><div>${esc(c.name)}${running.has(c.name) ? " ⏳" : ""}</div><div class="role">${esc(c.role)}</div></div>
+      </div>`;
+    }).join("")).join("");
+}
+
+function renderRefOptions() {
+  const c = current;
+  const withPortrait = state.characters.filter(x => x.portrait);
+  const keep = $("ref").value;
+  $("ref").innerHTML = `<option value="">不用参考图</option>` + withPortrait.map(x =>
+    `<option value="${esc(x.name)}">参考：${esc(x.name)} 的定妆照</option>`).join("");
+  $("ref").value = withPortrait.some(x => x.name === keep) ? keep : (c.portrait ? c.name : "");
+}
+
+function buildPrompt() {
+  const cfg = state.config;
+  const parts = [cfg.prefix, $("view").value, $("ref").value ? REF_HINT : "", $("desc").value.trim()];
+  let text = parts.filter(Boolean).join("，");
+  if (cfg.negative) text += "。画面中不要出现：" + cfg.negative;
+  return text;
+}
+
+const updatePreview = () => { $("preview").textContent = buildPrompt(); };
+
+async function select(c) {
+  current = c;
+  renderList();
+  $("main").innerHTML = `
+    <h2 style="margin:0">${esc(c.name)}</h2>
+    <div style="color:#999;margin-top:4px">${esc(c.group)} · ${esc(c.role)}</div>
+    <label>外貌描述（改完点别处自动保存）</label>
+    <textarea id="desc" rows="3">${esc(c.desc)}</textarea>
+    <div class="row">
+      <select id="view">${VIEWS.map(v => `<option value="${v}">${v || "不指定视角"}</option>`).join("")}</select>
+      <select id="ref"></select>
+      <span>数量</span><input id="count" type="number" min="1" max="4" value="2" style="width:64px">
+      <button id="btnGen">生成</button>
+    </div>
+    <label>最终提示词</label>
+    <div id="preview"></div>
+    <div id="status"></div>
+    <div id="gallery"></div>`;
+  renderRefOptions();
+  $("desc").oninput = updatePreview;
+  $("desc").onchange = () => { c.desc = $("desc").value.trim(); saveCharacters().catch(showError); };
+  $("view").onchange = updatePreview;
+  $("ref").onchange = updatePreview;
+  $("btnGen").onclick = generate;
+  $("btnGen").disabled = running.has(c.name);
+  if (running.has(c.name)) setStatus(`「${c.name}」正在生成中…`);
+  $("gallery").onclick = async e => {
+    const { portrait, file } = e.target.dataset;
+    if (portrait) {
+      c.portrait = portrait;
+      await saveCharacters().catch(showError);
+      renderList();
+      renderRefOptions();
+      updatePreview();
+      loadGallery();
+    } else if (file) {
+      window.open(imgUrl(c.name, file));
+    }
+  };
+  updatePreview();
+  await loadGallery();
+}
+
+async function loadGallery() {
+  const c = current;
+  const images = await api("/api/images?name=" + encodeURIComponent(c.name));
+  if (current !== c) return;
+  $("gallery").innerHTML = images.length ? images.map(img => `
+    <div class="card ${img.file === c.portrait ? "portrait" : ""}">
+      <img src="${imgUrl(c.name, img.file)}" title="${esc(img.prompt)}" data-file="${esc(img.file)}">
+      <div class="bar"><span>${esc(img.file.slice(0, 15))}</span>
+        <button class="secondary" data-portrait="${esc(img.file)}">${img.file === c.portrait ? "★ 定妆照" : "设为定妆照"}</button></div>
+    </div>`).join("") : `<div class="empty">还没有图片，点「生成」开始</div>`;
+}
+
+async function generate() {
+  const c = current;
+  c.desc = $("desc").value.trim();
+  const count = Math.max(1, Math.min(4, parseInt($("count").value) || 1));
+  const prompt = buildPrompt();
+  const refChar = state.characters.find(x => x.name === $("ref").value);
+  const references = refChar ? [{ name: refChar.name, file: refChar.portrait }] : [];
+  let done = 0;
+  const failed = [];
+  const status = (msg, isError) => { if (current === c) setStatus(msg, isError); };
+  const tick = () => status(`正在生成「${c.name}」：已完成 ${done}/${count}，每张大约 1 分钟，可以先去做别的角色…`);
+  running.add(c.name);
+  $("btnGen").disabled = true;
+  renderList();
+  try {
+    await saveCharacters();
+    tick();
+    await Promise.all(Array.from({ length: count }, () =>
+      api("/api/generate", { name: c.name, prompt, references })
+        .then(res => {
+          done++;
+          state.latest[c.name] = res.files[0];
+          renderList();
+          if (current === c) loadGallery();
+        })
+        .catch(e => failed.push(e.message))
+        .finally(tick)));
+    if (failed.length) status(`完成 ${done} 张，失败 ${failed.length} 张：${failed[0]}`, true);
+    else status(`「${c.name}」生成完成，共 ${done} 张`);
+  } catch (e) {
+    status("出错：" + e.message, true);
+  } finally {
+    running.delete(c.name);
+    if (current === c) $("btnGen").disabled = false;
+    renderList();
+  }
+}
+
+function openSettings() {
+  const cfg = state.config;
+  $("cfgBase").value = cfg.base_url || "";
+  $("cfgKey").value = "";
+  $("cfgKey").placeholder = cfg.api_key_set ? "已保存（留空则不修改）" : "";
+  $("cfgModel").value = cfg.model || "";
+  $("cfgSize").value = cfg.size || "";
+  $("cfgExtra").value = cfg.extra_body || "{}";
+  $("cfgPrefix").value = cfg.prefix || "";
+  $("cfgNegative").value = cfg.negative || "";
+  $("cfgVideoModel").value = cfg.video_model || "muse-video";
+  $("cfgVideoStyle").value = cfg.video_style || "真人古装电视剧画面，写实摄影，中国演员自然表演，自然光，普通电视剧镜头，16:9";
+  $("settings").showModal();
+}
+
+$("btnSettings").onclick = openSettings;
+$("btnCancel").onclick = () => $("settings").close();
+$("btnSave").onclick = async () => {
+  const extra = $("cfgExtra").value.trim() || "{}";
+  try { JSON.parse(extra); } catch { alert("额外请求参数不是合法的 JSON"); return; }
+  try {
+    await api("/api/config", {
+      base_url: $("cfgBase").value.trim(),
+      api_key: $("cfgKey").value.trim(),
+      model: $("cfgModel").value.trim(),
+      size: $("cfgSize").value.trim(),
+      extra_body: extra,
+      prefix: $("cfgPrefix").value.trim(),
+      negative: $("cfgNegative").value.trim(),
+      video_model: $("cfgVideoModel").value.trim(),
+      video_style: $("cfgVideoStyle").value.trim(),
+    });
+    state.config = (await api("/api/state")).config;
+    $("settings").close();
+    if (current) updatePreview();
+  } catch (e) {
+    alert("保存失败：" + e.message);
+  }
+};
+
+$("list").onclick = e => {
+  const el = e.target.closest(".item");
+  if (el) select(state.characters.find(c => c.name === el.dataset.name));
+};
+$("search").oninput = renderList;
+
+$("btnAdd").onclick = async () => {
+  const name = window.prompt("角色名（例如：林舟）")?.trim();
+  if (!name) return;
+  if (state.characters.some(c => c.name === name)) { alert("已有同名角色"); return; }
+  const group = window.prompt("分组（例如：主角）", current?.group || "其他")?.trim() || "其他";
+  const role = window.prompt("身份（一句话）", "")?.trim() || "";
+  const c = { group, name, role, desc: "", portrait: "" };
+  state.characters.push(c);
+  try { await saveCharacters(); } catch (e) { alert(e.message); }
+  select(c);
+};
+
+(async () => {
+  try {
+    state = await api("/api/state");
+    // An older server can finish its in-flight portrait requests while new visits use the studio.
+    if (state.version !== "video-studio-2" && ["7788", "7789"].includes(location.port)) {
+      location.replace("http://127.0.0.1:7790/" + (location.hash || "#videos"));
+      return;
+    }
+    renderList();
+    if (!state.config.base_url) openSettings();
+    const studioScript = document.createElement("script");
+    studioScript.src = "/studio.js";
+    document.body.append(studioScript);
+  } catch (e) {
+    $("main").innerHTML = `<div class="empty">加载失败：${esc(e.message)}</div>`;
+  }
+})();
+</script>
+</body>
+</html>
